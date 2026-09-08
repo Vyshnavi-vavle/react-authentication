@@ -1,6 +1,6 @@
 import axios from 'axios';
 import { toast } from 'react-toastify';
-import { AuthService } from '../Utils/authService';
+import { AuthService } from '../Util/authService';
 
 // Create an Axios instance
 const apiClient = axios.create({
@@ -12,9 +12,14 @@ const apiClient = axios.create({
 
 let activeRequests = 0; // Counter to track active API calls
 const shownErrors = new Set(); // Track errors already shown
+let interceptorsRegistered = false;
 
 // Add interceptors globally to apiClient
 export const setupApiClientWithLoader = (setLoading: (loading: boolean) => void) => {
+  if (interceptorsRegistered) {
+    return;
+  }
+
   apiClient.interceptors.request.use(
     async (config) => {
       const token = await AuthService.getToken();
@@ -67,8 +72,7 @@ export const setupApiClientWithLoader = (setLoading: (loading: boolean) => void)
       if (error.response) {
         if (error.response.status === 401) {
           AuthService.logout();
-          AuthService.reset()
-          window.location.href = import.meta.env.VITE_CALLBACK_URL;
+          AuthService.reset();
         }
       //    else if (error.response.status === 404 && window.location.pathname !== '/unAuthorized') {
       //     window.location.href = '/unAuthorized';
@@ -78,6 +82,8 @@ export const setupApiClientWithLoader = (setLoading: (loading: boolean) => void)
       return Promise.reject(error);
     }
   );
+
+  interceptorsRegistered = true;
 };
 
 export default apiClient;

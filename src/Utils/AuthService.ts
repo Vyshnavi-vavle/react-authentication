@@ -12,7 +12,15 @@ export class AuthService {
   static initialized = false;
   static initializing = false;
   static async getToken(): Promise<string | null> {
-    const activeAccount = msalInstance.getActiveAccount();
+    let activeAccount = msalInstance.getActiveAccount();
+    if (!activeAccount) {
+      const accounts = msalInstance.getAllAccounts();
+      if (accounts.length > 0) {
+        activeAccount = accounts[0];
+        msalInstance.setActiveAccount(activeAccount);
+      }
+    }
+
     if (!activeAccount) {
       console.warn("No active account found in MSAL");
       return null;
@@ -20,7 +28,6 @@ export class AuthService {
     try {
       const response = await msalInstance.acquireTokenSilent({
         account: activeAccount,
-        // scopes: ["api://bc115335-a0b9-4738-877c-2ead58e9f96d/access_as_user"],
         scopes: ["User.Read"],
       });
       return response.accessToken;
@@ -33,7 +40,6 @@ export class AuthService {
 
   static logout(): void {
     msalInstance.logoutRedirect({
-      // postLogoutRedirectUri: 'http://localhost:5000/login',
       postLogoutRedirectUri: import.meta.env.VITE_CALLBACK_URL,
     });
   }
@@ -42,6 +48,7 @@ export class AuthService {
     this.initializing = false;
     this.user_info = {};
     sessionStorage.clear()
+    localStorage.removeItem('user_name');
   }
 
  
@@ -49,7 +56,19 @@ export class AuthService {
   static getUserRoles =  () => {
       return this.user_info;
   };
- 
- 
- 
+
+  static getUserName(): string {
+    let activeAccount = msalInstance.getActiveAccount();
+    if (!activeAccount) {
+      const accounts = msalInstance.getAllAccounts();
+      if (accounts.length > 0) {
+        activeAccount = accounts[0];
+      }
+    }
+    const username = activeAccount?.username ?? '';
+    if (username) {
+      localStorage.setItem('user_name', username);
+    }
+    return username;
+  }
 }

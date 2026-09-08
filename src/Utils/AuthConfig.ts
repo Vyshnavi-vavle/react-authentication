@@ -20,7 +20,6 @@ export const msalConfig = {
 //    */
 
 export const loginRequest = {
-  // scopes: ["api://bc115335-a0b9-4738-877c-2ead58e9f96d/access_as_user"],
   scopes: ["User.Read"],
 };
 //   /**

@@ -1,49 +1,63 @@
-import { useIsAuthenticated, useMsal } from "@azure/msal-react";
-import React from "react";
-import { Navigate, useLocation, useNavigate } from "react-router-dom";
-import { fetchAuthDetails } from "../services/userManagement";
-import { useUserContext } from "../context/UserContext";
-import { hasSettingsAccess, PERMISSIONS, hasAccess} from "./UserRoleHelper";
+import type { ReactNode } from 'react';
+import { useEffect } from 'react';
+import { Navigate } from 'react-router-dom';
+import { useIsAuthenticated, useMsal } from '@azure/msal-react';
+import { InteractionStatus } from '@azure/msal-browser';
+import { useUserContext } from '../context/appContext';
 
-interface ProtectedRouteProps {
-  children: React.ReactNode;
-}
+type ProtectedRouteProps = {
+  children: ReactNode;
+};
 
-const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
+const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   const isAuthenticated = useIsAuthenticated();
-  const { inProgress } = useMsal();
-  const { setCurrentUser } = useUserContext();
-  const location = useLocation();
-  const navigate = useNavigate();
+  const { inProgress, instance } = useMsal();
+  const { currentUser, setCurrentUser } = useUserContext();
 
-  React.useEffect(() => {
-    if (isAuthenticated) {
-      fetchAuthDetails().then((response) => {
-        switch (location.pathname) {
-          case "/SettingsDashboard":
-            (!response || !response.data ||!hasSettingsAccess(response.data)) && navigate("/home", { replace: true });
-            break;
-          case "/ChangeRequest":
-            (!response || !response.data ||!hasAccess(response.data, PERMISSIONS.UPDATE_CHANGES)) && navigate("/home", { replace: true });
-            break;
-          default:
-            break;
-        }
-        setCurrentUser(response ? response.data : null);
-      }).catch((error) => {
-        console.error("Failed to fetch auth details:", error);
-      });
+  useEffect(() => {
+    if (!isAuthenticated) {
+      if (currentUser) {
+        setCurrentUser(null);
+      }
+      return;
     }
-  }, [isAuthenticated]);
 
-  if (inProgress !== "none") {
-    return (
-      <div style={{textAlign: "center", marginTop: "10vh", fontSize: "2rem"}}>
-        Loading...
-      </div>
-    );
+    const activeAccount = instance.getActiveAccount() || instance.getAllAccounts()[0];
+    if (!activeAccount) {
+      return;
+    }
+
+    if (currentUser?.homeAccountId === activeAccount.homeAccountId) {
+      return;
+    }
+
+    console.log("---------------activeAccount", activeAccount);
+      console.log({
+        homeAccountId: activeAccount.homeAccountId,
+        localAccountId: activeAccount.localAccountId,
+        tenantId: activeAccount.tenantId,
+        username: activeAccount.username,
+        name: activeAccount.name,
+      })
+
+    setCurrentUser({
+      homeAccountId: activeAccount.homeAccountId,
+      localAccountId: activeAccount.localAccountId,
+      tenantId: activeAccount.tenantId,
+      username: activeAccount.username,
+      name: activeAccount.name,
+    });
+  }, [instance, isAuthenticated, currentUser, setCurrentUser]);
+
+  if (inProgress !== InteractionStatus.None) {
+    return null;
   }
-  return isAuthenticated ? <>{children}</> : <Navigate to='/login' replace />;
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+
+  return <>{children}</>;
 };
 
 export default ProtectedRoute;
